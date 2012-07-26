@@ -11,7 +11,8 @@ LANGUAGE_LIST = "language.list";
 
 MOVIES_START = "===========";
 LANGUAGE_START = "=============";
-RATINGS_START= "";
+RATINGS_START= "MOVIE RATINGS REPORT";
+RATINGS_END = "------------------------------------------------------------------------------";
 
 connection = Connection(dbconfig.host, dbconfig.port);
 db = connection[dbconfig.database];
@@ -67,6 +68,7 @@ def dump_movies():
 
 
 def clean_movies():
+	print "Cleaning the movies collection";
 	collection.remove();
 
 def dump_language():
@@ -110,9 +112,53 @@ def dump_language():
 
 
 def dump_ratings():
-	pass;
+	ratings_fp = codecs.open(DATA_DIR + RATINGS_LIST, 'r', encoding='cp1252');
+	ratings_lines = ratings_fp.readlines();
+	ratings_fp.close();
 
+	print "Read " + str(len(ratings_lines)) + " lines from file " + DATA_DIR + RATINGS_LIST;
+
+	for start in range(0, len(ratings_lines)):
+		start += 1;
+		if(RATINGS_START in ratings_lines[start]):
+			break;
+	
+	for end in range(start, len(ratings_lines)):
+		end +=1;
+		try:
+			if(RATINGS_END in ratings_lines[end]):
+				break;
+		except IndexError:
+			print "end " + str(end);
+
+	start +=3;
+	end -=1;
+	ratings_list = ratings_lines[start:end];
+
+	print "Found " + str(len(ratings_list)) + " ratings lines";
+	update_count = 0;
+
+	reg_ex = re.compile("^\s+[.*0-9]{10}\s+\d+\s+([.0-9]+)\s+\"?(.+)\"?\s*\((\d{4})\)$");
+
+	for ratings in ratings_list:
+		match_obj = reg_ex.search(ratings);
+		if(match_obj):
+			parts = match_obj.groups();
+			rating = parts[0].strip("'");
+			title = parts[1].strip('" ');
+			year = parts[2];
+		else:
+			continue;
+
+		collection.update( {"title" : title, "year" : year}, { "$set" : {"rating" : rating} } );
+		update_count += 1;
+
+	print "Updated " + str(update_count) + " entries of movies with language data";
+
+	ratings_list[:] = [];
+	ratings_lines[:] = [];
+
+clean_movies();
 dump_movies();
 dump_language();
-#dump_ratings();
-#clean_movies();
+dump_ratings();
